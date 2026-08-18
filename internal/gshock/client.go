@@ -17,17 +17,18 @@ const (
 	casioServiceUUID  = "00001804-0000-1000-8000-00805f9b34fb"
 	readRequestUUID   = "26eb002c-b012-49a8-b1f8-394fb2032b0f"
 	allFeaturesUUID   = "26eb002d-b012-49a8-b1f8-394fb2032b0f"
-	notificationUUID  = "26eb0030-b012-49a8-b1f8-394fb2032b0f"
 	spRequestUUID     = "26eb002e-b012-49a8-b1f8-394fb2032b0f"
 	spDataUUID        = "26eb002f-b012-49a8-b1f8-394fb2032b0f"
 	notificationQueue = 64
 )
 
 type Client struct {
-	adapter        *bluetooth.Adapter
-	logger         *slog.Logger
+	adapter *bluetooth.Adapter
+
 	requestTimeout time.Duration
 	serviceUUID    bluetooth.UUID
+
+	g *slog.Logger
 }
 
 func (c *Client) ScanAndConnect(ctx context.Context, allow func(string) bool) (*Watch, error) {
@@ -89,7 +90,7 @@ func (c *Client) prepareWatch(device bluetooth.Device, name, address string) (*W
 	for _, service := range services {
 		discovered, discoverErr := service.DiscoverCharacteristics(nil)
 		if discoverErr != nil {
-			c.logger.Debug("characteristic discovery failed", "service", service.UUID().String(), "error", discoverErr)
+			c.g.Debug("characteristic discovery failed", "service", service.UUID().String(), "error", discoverErr)
 			continue
 		}
 		for _, characteristic := range discovered {
@@ -105,10 +106,6 @@ func (c *Client) prepareWatch(device bluetooth.Device, name, address string) (*W
 	if !ok {
 		return nil, fmt.Errorf("watch lacks all-features characteristic %s", allFeaturesUUID)
 	}
-	notify, ok := chars[notificationUUID]
-	if !ok {
-		return nil, fmt.Errorf("watch lacks notification characteristic %s", notificationUUID)
-	}
 
 	p := profileFor(name)
 	w := &Watch{
@@ -118,28 +115,40 @@ func (c *Client) prepareWatch(device bluetooth.Device, name, address string) (*W
 		device:          device,
 		profile:         p,
 		requestTimeout:  c.requestTimeout,
-		logger:          c.logger,
+		logger:          c.g,
 		readRequest:     readRequest,
 		allFeatures:     allFeatures,
 		notifications:   make(chan []byte, notificationQueue),
 		spNotifications: make(chan []byte, notificationQueue),
 	}
-	if err := notify.EnableNotifications(func(data []byte) {
-		w.enqueue(w.notifications, data)
-	}); err != nil {
-		return nil, fmt.Errorf("enable watch notifications: %w", err)
-	}
 
 	if characteristic, exists := chars[spRequestUUID]; exists {
 		w.spRequest = &characteristic
 	}
-	if characteristic, exists := chars[spDataUUID]; exists {
-		w.spData = &characteristic
-		if err := characteristic.EnableNotifications(func(data []byte) {
-			w.enqueue(w.spNotifications, data)
-		}); err != nil && p.protocol == mipProtocol {
-			return nil, fmt.Errorf("enable SP notifications: %w", err)
+
+	notifications := 0
+	for uuid, characteristic := range chars {
+		switch uuid {
+		case spDataUUID:
+			w.spData = &characteristic
+			if p.protocol == mipProtocol {
+				err := characteristic.EnableNotifications(func(data []byte) { w.enqueue(w.spNotifications, data) })
+				if err != nil {
+					return nil, fmt.Errorf("enable SP notifications: %w", err)
+				}
+			}
+		default:
+			err := characteristic.EnableNotifications(func(data []byte) { w.enqueue(w.notifications, data) })
+			if err == nil {
+				notifications++
+				c.g.Debug("subscribed to notifications", "uuid", uuid)
+			} else {
+				c.g.Debug("characteristic does not support notifications", "uuid", uuid, "error", err)
+			}
 		}
+	}
+	if notifications == 0 {
+		return nil, errors.New("watch exposes no notifiable characteristic")
 	}
 	return w, nil
 }
@@ -155,5 +164,5 @@ func NewClient(adapter *bluetooth.Adapter, logger *slog.Logger, requestTimeout t
 	if err := adapter.Enable(); err != nil {
 		return nil, err
 	}
-	return &Client{adapter: adapter, logger: logger, requestTimeout: requestTimeout, serviceUUID: serviceUUID}, nil
+	return &Client{adapter: adapter, g: logger, requestTimeout: requestTimeout, serviceUUID: serviceUUID}, nil
 }

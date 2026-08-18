@@ -41,16 +41,17 @@ func (s *Server) Run(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
+			s.g.Info("Server stopped")
 			return nil
 		case <-time.After(time.Second):
 			s.g.Info("Waiting for connection...")
-
 			scanCtx, cancel := context.WithTimeout(ctx, s.cfg.ScanTimeout)
 			watch, err := s.c.ScanAndConnect(scanCtx, s.allowWatch)
 			cancel()
 			if err != nil {
 				switch {
 				case ctx.Err() != nil:
+					s.g.Info("Server stopped")
 					return nil
 				case errors.Is(err, context.DeadlineExceeded), errors.Is(err, gshock.ErrNotFound):
 					s.g.Debug("no matching watch found")
@@ -74,31 +75,31 @@ func (s *Server) handleWatch(ctx context.Context, store *store, watch *gshock.Wa
 			}
 		}()
 	}
-
 	s.g.Info("Connected", "watch", watch.Name, "address", watch.Address)
-	if err := store.update(state{
-		LastConnected: time.Now().Format("01/02 15:04"),
+	err := store.update(state{
+		LastConnected: time.Now().Format(time.DateTime),
 		WatchName:     watch.Name,
-	}); err != nil {
+	})
+	if err != nil {
 		s.g.Warn("state file could not be saved", "error", err)
 	}
-
-	button, err := watch.PressedButton(ctx)
-	if err != nil {
+	btn, err := watch.PressedButton(ctx)
+	switch {
+	case err != nil:
 		s.g.Error("button query failed", "watch", watch.Name, "error", err)
 		return
-	}
-	if button == gshock.ButtonInvalid {
+	case btn == gshock.ButtonInvalid:
 		s.g.Info("connection ignored: unsupported button", "watch", watch.Name)
 		return
 	}
-
 	now := time.Now().Add(time.Duration(s.cfg.FineAdjustment) * time.Second)
-	if err := watch.SetTime(ctx, now); err != nil {
-		s.g.Error("time sync failed", "watch", watch.Name, "error", err)
+	s.g.Info("Set time start", "watch", watch.Name, "time", now.Format(time.RFC3339))
+	err = watch.SetTime(ctx, now)
+	if err != nil {
+		s.g.Error("Set time failed", "watch", watch.Name, "error", err)
 		return
 	}
-	s.g.Info("Time set", "watch", watch.Name, "time", now.Format(time.RFC3339Nano))
+	s.g.Info("Set time done", "watch", watch.Name, "time", now.Format(time.RFC3339))
 }
 
 func New(config Config, client Connector, logger *slog.Logger) *Server {

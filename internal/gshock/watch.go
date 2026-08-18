@@ -63,10 +63,10 @@ func (w *Watch) roundTrip(ctx context.Context, request []byte, key byte) error {
 }
 func (w *Watch) request(ctx context.Context, request []byte, expectedKey byte) ([]byte, error) {
 	drain(w.notifications)
-	if err := w.write(w.readRequest, request, true); err != nil {
+	err := w.write(w.readRequest, request, true)
+	if err != nil {
 		return nil, err
 	}
-
 	waitCtx, cancel := context.WithTimeout(ctx, w.requestTimeout)
 	defer cancel()
 	for {

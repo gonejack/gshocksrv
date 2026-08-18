@@ -4,6 +4,7 @@ go 1.24.0
 
 require (
 	github.com/alecthomas/kong v1.16.1
+	github.com/lmittmann/tint v1.2.0
 	tinygo.org/x/bluetooth v0.15.0
 )
 

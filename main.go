@@ -13,6 +13,7 @@ import (
 	"github.com/alecthomas/kong"
 	"github.com/gonejack/gshocksrv/internal/gshock"
 	"github.com/gonejack/gshocksrv/internal/server"
+	"github.com/lmittmann/tint"
 	"tinygo.org/x/bluetooth"
 )
 
@@ -27,8 +28,9 @@ type options struct {
 	FineAdjustment int           `name:"fine-adjustment-secs" default:"0" help:"Seconds added to watch time (-10..10)."`
 	ScanTimeout    time.Duration `name:"scan-timeout" default:"1m" help:"Maximum time for each BLE scan."`
 	RequestTimeout time.Duration `name:"request-timeout" default:"5s" help:"Maximum time to wait for a watch response."`
-	StorePath      string        `name:"store" default:"gshock_server_data.json" help:"Path to the state file."`
+	StorePath      string        `name:"store-path" default:"gshock_server_data.json" help:"Path to the state file."`
 	LogLevel       string        `name:"log-level" default:"INFO" help:"Log level: DEBUG, INFO, WARN, or ERROR."`
+	NoColor        bool          `name:"no-color" help:"Disable colored log output."`
 }
 
 type application struct {
@@ -49,14 +51,10 @@ func (a *application) run() error {
 	if err != nil {
 		return err
 	}
-	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-		Level: level,
-		ReplaceAttr: func(_ []string, attr slog.Attr) slog.Attr {
-			if attr.Key == slog.TimeKey {
-				attr.Value = slog.StringValue(attr.Value.Time().Format(time.DateTime))
-			}
-			return attr
-		},
+	logger := slog.New(tint.NewTextHandler(os.Stdout, &tint.Options{
+		Level:      level,
+		TimeFormat: time.DateTime,
+		NoColor:    a.NoColor,
 	}))
 
 	client, err := gshock.NewClient(bluetooth.DefaultAdapter, logger, a.RequestTimeout)
@@ -78,6 +76,7 @@ func (a *application) run() error {
 	}
 	return nil
 }
+
 func (a *application) parseLogLevel() (slog.Level, error) {
 	switch strings.ToUpper(a.LogLevel) {
 	case "DEBUG":

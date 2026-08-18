@@ -25,6 +25,7 @@ go run .
 
 ```bash
 go run . --fine-adjustment-secs 1 --log-level DEBUG
+go run . --no-color
 go run . --help
 ```
 
