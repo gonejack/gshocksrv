@@ -37,15 +37,9 @@ func (c *Client) ScanAndConnect(ctx context.Context, allow func(string) bool) (*
 		name    string
 	}
 	var found *candidate
-	scanDone := make(chan struct{})
-	go func() {
-		select {
-		case <-ctx.Done():
-			_ = c.adapter.StopScan()
-		case <-scanDone:
-		}
-	}()
-
+	stop := context.AfterFunc(ctx, func() {
+		_ = c.adapter.StopScan()
+	})
 	err := c.adapter.Scan(func(adapter *bluetooth.Adapter, result bluetooth.ScanResult) {
 		if found != nil || !result.HasServiceUUID(c.serviceUUID) {
 			return
@@ -57,7 +51,7 @@ func (c *Client) ScanAndConnect(ctx context.Context, allow func(string) bool) (*
 		found = &candidate{address: result.Address, name: name}
 		_ = adapter.StopScan()
 	})
-	close(scanDone)
+	stop()
 
 	if ctx.Err() != nil {
 		return nil, ctx.Err()
