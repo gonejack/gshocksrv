@@ -109,11 +109,12 @@ func (c *Client) prepareWatch(device bluetooth.Device, name, address string) (*W
 		device:          device,
 		profile:         p,
 		requestTimeout:  c.requestTimeout,
-		logger:          c.g,
 		readRequest:     readRequest,
 		allFeatures:     allFeatures,
 		notifications:   make(chan []byte, notificationQueue),
 		spNotifications: make(chan []byte, notificationQueue),
+
+		g: c.g,
 	}
 
 	if characteristic, exists := chars[spRequestUUID]; exists {

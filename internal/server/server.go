@@ -92,14 +92,14 @@ func (s *Server) handleWatch(ctx context.Context, store *store, watch *gshock.Wa
 		s.g.Info("connection ignored: unsupported button", "watch", watch.Name)
 		return
 	}
-	now := time.Now().Add(time.Duration(s.cfg.FineAdjustment) * time.Second)
-	s.g.Info("Set time start", "watch", watch.Name, "time", now.Format(time.RFC3339))
-	err = watch.SetTime(ctx, now)
+	adjust := time.Duration(s.cfg.FineAdjustment) * time.Second
+	s.g.Info("Set time start", "watch", watch.Name, "time", time.Now().Add(adjust).Format(time.RFC3339))
+	err = watch.SetTime(ctx, adjust)
 	if err != nil {
 		s.g.Error("Set time failed", "watch", watch.Name, "error", err)
 		return
 	}
-	s.g.Info("Set time done", "watch", watch.Name, "time", now.Format(time.RFC3339))
+	s.g.Info("Set time done", "watch", watch.Name, "time", time.Now().Add(adjust).Format(time.RFC3339))
 }
 
 func New(config Config, client Connector, logger *slog.Logger) *Server {

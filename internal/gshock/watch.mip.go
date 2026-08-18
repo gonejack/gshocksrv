@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-func (w *Watch) setTimeMIP(ctx context.Context, now time.Time) error {
+func (w *Watch) setTimeMIP(ctx context.Context, adjustment time.Duration) error {
 	if w.spRequest == nil || w.spData == nil {
 		return errors.New("watch lacks MIP protocol characteristics")
 	}
@@ -33,7 +33,7 @@ func (w *Watch) setTimeMIP(ctx context.Context, now time.Time) error {
 		return fmt.Errorf("MIP step 2: %w", err)
 	}
 	step2[0] = 0x06
-	step2 = append(step2, worldCityRecords(now)...)
+	step2 = append(step2, worldCityRecords(time.Now())...)
 	if err := w.write(*w.spData, step2, false); err != nil {
 		return fmt.Errorf("MIP step 2 write: %w", err)
 	}
@@ -54,7 +54,7 @@ func (w *Watch) setTimeMIP(ctx context.Context, now time.Time) error {
 		return fmt.Errorf("MIP step 3 write: %w", err)
 	}
 
-	return w.writeCurrentTime(encodeMIPTime(now))
+	return w.writeCurrentTime(encodeMIPTime(time.Now().Add(adjustment)))
 }
 func (w *Watch) requestSP(ctx context.Context, request []byte, expected int) ([]byte, error) {
 	drain(w.spNotifications)

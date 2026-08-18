@@ -15,16 +15,18 @@ type Watch struct {
 	Address         string
 	AlwaysConnected bool
 
-	device          bluetooth.Device
-	profile         profile
-	requestTimeout  time.Duration
-	logger          *slog.Logger
+	device         bluetooth.Device
+	profile        profile
+	requestTimeout time.Duration
+
 	readRequest     bluetooth.DeviceCharacteristic
 	allFeatures     bluetooth.DeviceCharacteristic
 	spRequest       *bluetooth.DeviceCharacteristic
 	spData          *bluetooth.DeviceCharacteristic
 	notifications   chan []byte
 	spNotifications chan []byte
+
+	g *slog.Logger
 }
 
 func (w *Watch) enqueue(ch chan []byte, data []byte) {
@@ -32,7 +34,7 @@ func (w *Watch) enqueue(ch chan []byte, data []byte) {
 	select {
 	case ch <- copyOfData:
 	default:
-		w.logger.Warn("dropping BLE notification", "watch", w.Name)
+		w.g.Warn("dropping BLE notification", "watch", w.Name)
 	}
 }
 func (w *Watch) PressedButton(ctx context.Context) (Button, error) {
@@ -42,11 +44,11 @@ func (w *Watch) PressedButton(ctx context.Context) (Button, error) {
 	}
 	return decodeButton(data), nil
 }
-func (w *Watch) SetTime(ctx context.Context, now time.Time) error {
+func (w *Watch) SetTime(ctx context.Context, adjustment time.Duration) error {
 	if w.profile.protocol == mipProtocol {
-		return w.setTimeMIP(ctx, now)
+		return w.setTimeMIP(ctx, adjustment)
 	}
-	return w.setTimeStandard(ctx, now)
+	return w.setTimeStandard(ctx, adjustment)
 }
 func (w *Watch) Disconnect() error {
 	return w.device.Disconnect()
@@ -98,7 +100,7 @@ func (w *Watch) writeCurrentTime(data []byte) error {
 	}
 	connected, stateErr := w.device.Connected()
 	if stateErr == nil && !connected {
-		w.logger.Debug("watch disconnected after receiving the time packet", "watch", w.Name)
+		w.g.Debug("watch disconnected after receiving the time packet", "watch", w.Name)
 		return nil
 	}
 	return err

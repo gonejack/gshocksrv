@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-func (w *Watch) setTimeStandard(ctx context.Context, now time.Time) error {
+func (w *Watch) setTimeStandard(ctx context.Context, adjustment time.Duration) error {
 	states := []byte{0, 2, 4}
 	for _, state := range states[:w.profile.dstStates] {
 		if err := w.roundTrip(ctx, []byte{featureDSTState, state}, featureDSTState); err != nil {
@@ -32,6 +32,7 @@ func (w *Watch) setTimeStandard(ctx context.Context, now time.Time) error {
 		}
 	}
 
+	now := time.Now().Add(adjustment)
 	if err := w.writeCurrentTime(encodeTime(now)); err != nil {
 		return fmt.Errorf("write current time: %w", err)
 	}
