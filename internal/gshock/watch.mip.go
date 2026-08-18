@@ -25,7 +25,7 @@ func (w *Watch) setTimeMIP(ctx context.Context, now time.Time) error {
 	}
 
 	step2Request := []byte{0x03}
-	for i := 0; i < (w.profile.worldCities+1)/2; i++ {
+	for range (w.profile.worldCities + 1) / 2 {
 		step2Request = append(step2Request, featureDSTCity, 0)
 	}
 	step2, err := w.requestSP(ctx, step2Request, 28)
@@ -39,7 +39,7 @@ func (w *Watch) setTimeMIP(ctx context.Context, now time.Time) error {
 	}
 
 	step3Request := []byte{0x06}
-	for i := 0; i < w.profile.worldCities; i++ {
+	for i := range w.profile.worldCities {
 		index := i / 2
 		if i%2 != 0 {
 			index += 6

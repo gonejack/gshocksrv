@@ -13,19 +13,19 @@ func (w *Watch) setTimeStandard(ctx context.Context, now time.Time) error {
 			return err
 		}
 	}
-	for city := 0; city < w.profile.worldCities; city++ {
+	for city := range w.profile.worldCities {
 		if err := w.roundTrip(ctx, []byte{featureDSTCity, byte(city)}, featureDSTCity); err != nil {
 			return err
 		}
 	}
 	if w.profile.hasWorldCities {
-		for city := 0; city < w.profile.worldCities; city++ {
+		for city := range w.profile.worldCities {
 			if err := w.roundTrip(ctx, []byte{featureWorld, byte(city)}, featureWorld); err != nil {
 				return err
 			}
 		}
 	} else if w.profile.hasHomeTime {
-		for city := 0; city < w.profile.worldCities; city++ {
+		for city := range w.profile.worldCities {
 			if err := w.roundTrip(ctx, []byte{featureHomeTime, byte(city)}, featureHomeTime); err != nil {
 				return err
 			}
@@ -52,7 +52,7 @@ func (w *Watch) setSecondDial(ctx context.Context) error {
 		if feature == featureWorld && !w.profile.hasWorldCities {
 			continue
 		}
-		for city := 0; city < 2; city++ {
+		for city := range 2 {
 			if err := w.roundTrip(ctx, []byte{feature, byte(city)}, feature); err != nil {
 				return err
 			}
