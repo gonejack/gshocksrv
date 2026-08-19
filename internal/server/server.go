@@ -46,7 +46,7 @@ func (s *Server) Run(ctx context.Context) error {
 		case <-time.After(time.Second):
 			s.g.Info("Waiting for connection...")
 			scanCtx, cancel := context.WithTimeout(ctx, s.cfg.ScanTimeout)
-			watch, err := s.c.ScanAndConnect(scanCtx, s.allowWatch)
+			watch, err := s.c.ScanAndConnect(scanCtx, s.acceptWatch)
 			cancel()
 			if err != nil {
 				switch {
@@ -64,7 +64,7 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 	}
 }
-func (s *Server) allowWatch(name string) bool {
+func (s *Server) acceptWatch(name string) bool {
 	return name != "CASIO OCW-T200" && s.t.allow(name)
 }
 func (s *Server) handleWatch(ctx context.Context, store *store, watch *gshock.Watch) {
@@ -93,13 +93,13 @@ func (s *Server) handleWatch(ctx context.Context, store *store, watch *gshock.Wa
 		return
 	}
 	adjust := time.Duration(s.cfg.FineAdjustment) * time.Second
-	s.g.Info("Set time start", "watch", watch.Name, "time", time.Now().Add(adjust).Format(time.RFC3339))
-	err = watch.SetTime(ctx, adjust)
+	s.g.Info("Set time start", "watch", watch.Name)
+	t, err := watch.SetTime(ctx, adjust)
 	if err != nil {
 		s.g.Error("Set time failed", "watch", watch.Name, "error", err)
 		return
 	}
-	s.g.Info("Set time done", "watch", watch.Name, "time", time.Now().Add(adjust).Format(time.RFC3339))
+	s.g.Info("Set time done", "watch", watch.Name, "time", t.Format(time.RFC3339), "adjust", adjust)
 }
 
 func New(config Config, client Connector, logger *slog.Logger) *Server {

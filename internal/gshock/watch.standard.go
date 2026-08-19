@@ -6,42 +6,42 @@ import (
 	"time"
 )
 
-func (w *Watch) setTimeStandard(ctx context.Context, adjustment time.Duration) error {
+func (w *Watch) setTimeStandard(ctx context.Context, adjustment time.Duration) (time.Time, error) {
 	states := []byte{0, 2, 4}
 	for _, state := range states[:w.profile.dstStates] {
 		if err := w.roundTrip(ctx, []byte{featureDSTState, state}, featureDSTState); err != nil {
-			return err
+			return time.Time{}, err
 		}
 	}
 	for city := range w.profile.worldCities {
 		if err := w.roundTrip(ctx, []byte{featureDSTCity, byte(city)}, featureDSTCity); err != nil {
-			return err
+			return time.Time{}, err
 		}
 	}
 	if w.profile.hasWorldCities {
 		for city := range w.profile.worldCities {
 			if err := w.roundTrip(ctx, []byte{featureWorld, byte(city)}, featureWorld); err != nil {
-				return err
+				return time.Time{}, err
 			}
 		}
 	} else if w.profile.hasHomeTime {
 		for city := range w.profile.worldCities {
 			if err := w.roundTrip(ctx, []byte{featureHomeTime, byte(city)}, featureHomeTime); err != nil {
-				return err
+				return time.Time{}, err
 			}
 		}
 	}
-
-	now := time.Now().Add(adjustment)
-	if err := w.writeCurrentTime(encodeTime(now)); err != nil {
-		return fmt.Errorf("write current time: %w", err)
+	wrt := time.Now().Add(adjustment)
+	if err := w.writeTime(encodeTime(wrt)); err != nil {
+		return wrt, fmt.Errorf("write current time: %w", err)
 	}
 	if w.profile.secondDial {
-		return w.setSecondDial(ctx)
+		if err := w.setSecondDial(ctx); err != nil {
+			return wrt, err
+		}
 	}
-	return nil
+	return wrt, nil
 }
-
 func (w *Watch) setSecondDial(ctx context.Context) error {
 	if err := w.write(w.allFeatures, []byte{0x21, 0x00, 0x01}, false); err != nil {
 		return err

@@ -18,8 +18,9 @@ import (
 )
 
 func main() {
-	if err := new(application).run(); err != nil {
-		fmt.Fprintln(os.Stderr, "gshocksrv:", err)
+	err := new(application).run()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %s", err)
 		os.Exit(1)
 	}
 }

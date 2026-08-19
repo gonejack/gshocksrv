@@ -9,19 +9,19 @@ import (
 	"time"
 )
 
-func (w *Watch) setTimeMIP(ctx context.Context, adjustment time.Duration) error {
+func (w *Watch) setTimeMIP(ctx context.Context, adjustment time.Duration) (time.Time, error) {
 	if w.spRequest == nil || w.spData == nil {
-		return errors.New("watch lacks MIP protocol characteristics")
+		return time.Time{}, errors.New("watch lacks MIP protocol characteristics")
 	}
 
 	step1Request := []byte{0x05, 0x1d, 0x00, 0x1d, 0x00, 0x24, 0x00, 0x24, 0x01, 0x24, 0x02}
 	step1, err := w.requestSP(ctx, step1Request, 101)
 	if err != nil {
-		return fmt.Errorf("MIP step 1: %w", err)
+		return time.Time{}, fmt.Errorf("MIP step 1: %w", err)
 	}
 	step1[0] = 0x02
 	if err := w.write(*w.spData, step1, false); err != nil {
-		return fmt.Errorf("MIP step 1 write: %w", err)
+		return time.Time{}, fmt.Errorf("MIP step 1 write: %w", err)
 	}
 
 	step2Request := []byte{0x03}
@@ -30,12 +30,12 @@ func (w *Watch) setTimeMIP(ctx context.Context, adjustment time.Duration) error 
 	}
 	step2, err := w.requestSP(ctx, step2Request, 28)
 	if err != nil {
-		return fmt.Errorf("MIP step 2: %w", err)
+		return time.Time{}, fmt.Errorf("MIP step 2: %w", err)
 	}
 	step2[0] = 0x06
 	step2 = append(step2, worldCityRecords(time.Now())...)
 	if err := w.write(*w.spData, step2, false); err != nil {
-		return fmt.Errorf("MIP step 2 write: %w", err)
+		return time.Time{}, fmt.Errorf("MIP step 2 write: %w", err)
 	}
 
 	step3Request := []byte{0x06}
@@ -48,13 +48,17 @@ func (w *Watch) setTimeMIP(ctx context.Context, adjustment time.Duration) error 
 	}
 	step3, err := w.requestSP(ctx, step3Request, 1+w.profile.worldCities*22)
 	if err != nil {
-		return fmt.Errorf("MIP step 3: %w", err)
+		return time.Time{}, fmt.Errorf("MIP step 3: %w", err)
 	}
 	if err := w.write(*w.spData, step3, false); err != nil {
-		return fmt.Errorf("MIP step 3 write: %w", err)
+		return time.Time{}, fmt.Errorf("MIP step 3 write: %w", err)
 	}
 
-	return w.writeCurrentTime(encodeMIPTime(time.Now().Add(adjustment)))
+	wrt := time.Now().Add(adjustment)
+	if err := w.writeTime(encodeMIPTime(wrt)); err != nil {
+		return wrt, err
+	}
+	return wrt, nil
 }
 func (w *Watch) requestSP(ctx context.Context, request []byte, expected int) ([]byte, error) {
 	drain(w.spNotifications)

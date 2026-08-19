@@ -30,9 +30,9 @@ type Watch struct {
 }
 
 func (w *Watch) enqueue(ch chan []byte, data []byte) {
-	copyOfData := slices.Clone(data)
+	dat := slices.Clone(data)
 	select {
-	case ch <- copyOfData:
+	case ch <- dat:
 	default:
 		w.g.Warn("dropping BLE notification", "watch", w.Name)
 	}
@@ -44,7 +44,7 @@ func (w *Watch) PressedButton(ctx context.Context) (Button, error) {
 	}
 	return decodeButton(data), nil
 }
-func (w *Watch) SetTime(ctx context.Context, adjustment time.Duration) error {
+func (w *Watch) SetTime(ctx context.Context, adjustment time.Duration) (time.Time, error) {
 	if w.profile.protocol == mipProtocol {
 		return w.setTimeMIP(ctx, adjustment)
 	}
@@ -75,12 +75,12 @@ func (w *Watch) request(ctx context.Context, request []byte, expectedKey byte) (
 		select {
 		case <-waitCtx.Done():
 			return nil, waitCtx.Err()
-		case data := <-w.notifications:
-			key, err := responseKey(data, w.profile.protocol)
+		case dat := <-w.notifications:
+			key, err := responseKey(dat, w.profile.protocol)
 			if err != nil || key != expectedKey {
 				continue
 			}
-			return slices.Clone(unwrapResponse(data, key, w.profile.protocol)), nil
+			return slices.Clone(unwrapResponse(dat, key, w.profile.protocol)), nil
 		}
 	}
 }
@@ -93,7 +93,7 @@ func (w *Watch) write(characteristic bluetooth.DeviceCharacteristic, data []byte
 	}
 	return err
 }
-func (w *Watch) writeCurrentTime(data []byte) error {
+func (w *Watch) writeTime(data []byte) error {
 	err := w.write(w.allFeatures, data, false)
 	if err == nil {
 		return nil

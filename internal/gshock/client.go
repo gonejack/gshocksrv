@@ -31,7 +31,7 @@ type Client struct {
 	g *slog.Logger
 }
 
-func (c *Client) ScanAndConnect(ctx context.Context, allow func(string) bool) (*Watch, error) {
+func (c *Client) ScanAndConnect(ctx context.Context, accept func(string) bool) (*Watch, error) {
 	type candidate struct {
 		address bluetooth.Address
 		name    string
@@ -45,10 +45,13 @@ func (c *Client) ScanAndConnect(ctx context.Context, allow func(string) bool) (*
 			return
 		}
 		name := result.LocalName()
-		if allow != nil && !allow(name) {
+		if accept != nil && !accept(name) {
 			return
 		}
-		found = &candidate{address: result.Address, name: name}
+		found = &candidate{
+			address: result.Address,
+			name:    name,
+		}
 		_ = adapter.StopScan()
 	})
 	stop()

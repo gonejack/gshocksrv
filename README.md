@@ -1,6 +1,6 @@
 # gshocksrv
 
-`gshocksrv` 是 [GShockTimeServer](py/GShockTimeServer/README.md) 无显示版本的 Go 实现。它持续扫描通过 BLE 发起连接的 Casio 手表，读取连接按钮并写入当前系统时间。
+`gshocksrv` 是 [GShockTimeServer](https://github.com/izivkov/GShockTimeServer) 无显示版本的 Go 实现。它持续扫描通过 BLE 发起连接的 Casio 手表，读取连接按钮并写入当前系统时间。
 
 ## 功能
 
