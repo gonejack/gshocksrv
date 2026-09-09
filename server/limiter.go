@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gonejack/gshocksrv/internal/gshock"
+	"github.com/gonejack/gshocksrv/gshock"
 )
 
 type connectionLimiter struct {

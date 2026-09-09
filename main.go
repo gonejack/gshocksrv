@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/alecthomas/kong"
-	"github.com/gonejack/gshocksrv/internal/gshock"
-	"github.com/gonejack/gshocksrv/internal/server"
+	"github.com/gonejack/gshocksrv/gshock"
+	"github.com/gonejack/gshocksrv/server"
 	"github.com/lmittmann/tint"
 	"tinygo.org/x/bluetooth"
 )
