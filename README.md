@@ -8,19 +8,19 @@
 
 ## English
 
-`gshocksrv` is a headless Go service that synchronizes the current system time to compatible Casio G-Shock watches over Bluetooth Low Energy (BLE).
+`gshocksrv` is a headless Go service that synchronizes the host's local time to compatible Casio G-Shock watches over Bluetooth Low Energy (BLE).
 
-> **Project origin:** This project was developed with reference to [izivkov/GShockTimeServer](https://github.com/izivkov/GShockTimeServer). It reimplements the headless time-server workflow in Go, including the Casio BLE protocol handling and watch-specific synchronization behavior.
+> **Project origin:** A Go reimplementation of [izivkov/GShockTimeServer](https://github.com/izivkov/GShockTimeServer), covering its headless workflow, Casio BLE protocol, and model-specific synchronization logic.
 
 ### Installation
 
-Choose one of the following installation methods.
+Choose one of the following methods.
 
-#### 1. Download a prebuilt executable (recommended)
+#### 1. Download prebuilt (recommended)
 
-Download the archive for your operating system and architecture from the [Releases page](https://github.com/gonejack/gshocksrv/releases), then extract it and place the executable somewhere in your `PATH`. This method does not require Go.
+Download the matching archive from [Releases](https://github.com/gonejack/gshocksrv/releases), extract it, and place the executable in your `PATH`.
 
-On macOS, if opening the downloaded executable shows a warning that it cannot be opened and should be moved to the Trash, clear its quarantine attributes before trying again:
+On macOS, clear the quarantine attribute if the executable cannot be opened:
 
 ```bash
 xattr -c /path/to/gshocksrv
@@ -28,17 +28,17 @@ xattr -c /path/to/gshocksrv
 
 #### 2. Install with `go install`
 
-This method requires Go 1.26 or later.
+Requires Go 1.26+.
 
 ```bash
 go install github.com/gonejack/gshocksrv@latest
 ```
 
-Make sure the Go binary directory (usually `$HOME/go/bin`) is included in your `PATH`.
+Ensure the Go binary directory (usually `$HOME/go/bin`) is in your `PATH`.
 
 #### 3. Build with `go build`
 
-This method requires Go 1.26 or later.
+Requires Go 1.26+.
 
 ```bash
 git clone https://github.com/gonejack/gshocksrv.git
@@ -48,7 +48,7 @@ go build -o gshocksrv .
 
 #### Linux / Raspberry Pi requirement
 
-Regardless of the installation method, install and start BlueZ before running `gshocksrv`:
+Install and start BlueZ before running `gshocksrv`:
 
 ```bash
 sudo apt install bluez
@@ -57,28 +57,28 @@ sudo systemctl enable --now bluetooth
 
 ### Usage
 
-Start the server and leave it running:
+Start the service and keep it running:
 
 ```bash
 gshocksrv
 ```
 
-Then trigger a Bluetooth connection from the watch. Depending on the model, short-press the lower-right button, long-press the lower-left button, or enable automatic time adjustment. Once connected, `gshocksrv` writes the host machine's current local time to the watch.
+Trigger a watch connection by short-pressing the lower-right button, long-pressing the lower-left button, or enabling automatic time adjustment, depending on the model. Once connected, the service writes the host's local time to the watch.
 
 Common examples:
 
 ```bash
-# Add one second to the time written to the watch
+# Add one second to the synchronized time
 gshocksrv --fine-adjustment-secs 1
 
 # Show detailed connection logs
 gshocksrv --log-level DEBUG
 
-# Store connection state at a custom path
+# Use a custom state file and disable colored logs
 gshocksrv --store-path /var/lib/gshocksrv/state.json --no-color
 ```
 
-The default state file is `gshock_server_data.json` in the current working directory and records the most recent connection. While the server is running, always-connected models such as the ECB series and DW-H5600 are limited to one accepted connection every six hours.
+The default state file, `gshock_server_data.json` in the current directory, records the latest connection. Always-connected models such as the ECB series and DW-H5600 accept at most one connection every six hours.
 
 ### Options
 
@@ -96,38 +96,38 @@ Flags:
 
 ### Platform Notes
 
-- **macOS:** On first use, allow your terminal or the installed executable to access Bluetooth in **System Settings > Privacy & Security > Bluetooth**.
-- **Linux / Raspberry Pi:** BlueZ must be running, and the user running `gshocksrv` must have permission to access the BlueZ D-Bus service.
-- The synchronized time is taken from the host's local time zone. Configure the host's clock and time zone correctly before running the server.
+- **macOS:** On first use, allow the terminal or executable to use Bluetooth in **System Settings > Privacy & Security > Bluetooth**.
+- **Linux / Raspberry Pi:** BlueZ must be running, and the user must be allowed to access its D-Bus service.
+- The synchronized time is taken from the host, make sure the host's clock and time zone is correct.
 
 ### Supported Behavior
 
-- Standard digital-watch protocol, MTG analog-watch protocol, and the GW-BX5600 MIP synchronization flow.
-- Required DST and world-city settings are read and written back before time synchronization.
-- Optional time adjustment from `-10` to `10` seconds.
-- Continuous scanning and support for multiple compatible watches.
+- Standard digital, MTG analog, and GW-BX5600 MIP synchronization protocols.
+- Reads and writes back required DST and world-city settings before synchronization.
+- Time adjustment from `-10` to `10` seconds.
+- Continuous scanning for multiple compatible watches.
 
 ### Acknowledgements
 
-Special thanks to [GShockTimeServer](https://github.com/izivkov/GShockTimeServer), which served as the primary reference for this Go implementation and its Casio watch synchronization behavior.
+Thanks to [GShockTimeServer](https://github.com/izivkov/GShockTimeServer), the primary reference for this implementation.
 
 ---
 
 ## 中文
 
-`gshocksrv` 是一个无显示界面的 Go 服务，通过低功耗蓝牙（BLE）将当前系统时间同步到兼容的 Casio G-Shock 手表。
+`gshocksrv` 是一个无界面的 Go 服务，通过低功耗蓝牙（BLE）将主机本地时间同步到兼容的 Casio G-Shock 手表。
 
-> **项目来源：** 本项目参考 [izivkov/GShockTimeServer](https://github.com/izivkov/GShockTimeServer) 开发，以 Go 重新实现了其无显示时间服务器的工作流程，包括 Casio BLE 协议处理和不同手表的校时逻辑。
+> **项目来源：** 本项目以 Go 重写 [izivkov/GShockTimeServer](https://github.com/izivkov/GShockTimeServer)，涵盖无界面服务流程、Casio BLE 协议及型号适配校时逻辑。
 
 ### 安装
 
-请选择以下任意一种安装方式。
+任选一种安装方式。
 
 #### 1. 下载预编译版本（推荐）
 
-前往 [Releases 页面](https://github.com/gonejack/gshocksrv/releases)，下载与操作系统和处理器架构匹配的压缩包，解压后将可执行文件放到 `PATH` 中。此方式不需要安装 Go。
+从 [Releases](https://github.com/gonejack/gshocksrv/releases) 下载对应系统和架构的压缩包，解压后将可执行文件放入 `PATH`。
 
-在 macOS 上，如果打开下载的可执行文件时提示无法打开并应“移到废纸篓”，请先执行以下命令清除隔离属性，然后再次运行：
+macOS 若无法打开可执行文件，请清除隔离属性：
 
 ```bash
 xattr -c /path/to/gshocksrv
@@ -135,17 +135,17 @@ xattr -c /path/to/gshocksrv
 
 #### 2. 使用 `go install` 安装
 
-此方式需要 Go 1.26 或更高版本。
+需要 Go 1.26+。
 
 ```bash
 go install github.com/gonejack/gshocksrv@latest
 ```
 
-请确保 Go 的可执行文件目录（通常为 `$HOME/go/bin`）已经加入 `PATH`。
+确保 Go 可执行文件目录（通常为 `$HOME/go/bin`）已加入 `PATH`。
 
 #### 3. 使用 `go build` 构建
 
-此方式需要 Go 1.26 或更高版本。
+需要 Go 1.26+。
 
 ```bash
 git clone https://github.com/gonejack/gshocksrv.git
@@ -155,7 +155,7 @@ go build -o gshocksrv .
 
 #### Linux / Raspberry Pi 运行要求
 
-无论采用哪种安装方式，在 Linux 和 Raspberry Pi 上运行 `gshocksrv` 前都需要先安装并启动 BlueZ：
+运行 `gshocksrv` 前安装并启动 BlueZ：
 
 ```bash
 sudo apt install bluez
@@ -170,22 +170,22 @@ sudo systemctl enable --now bluetooth
 gshocksrv
 ```
 
-然后在手表上触发蓝牙连接。具体操作因型号而异，可以短按右下键、长按左下键，或开启自动校时。连接成功后，`gshocksrv` 会把运行机器的当前本地时间写入手表。
+根据型号短按右下键、长按左下键或开启自动校时，由手表发起连接。连接后，服务将主机本地时间写入手表。
 
 常用示例：
 
 ```bash
-# 在写入手表的时间上增加 1 秒
+# 同步时间增加 1 秒
 gshocksrv --fine-adjustment-secs 1
 
-# 显示详细的连接日志
+# 显示详细连接日志
 gshocksrv --log-level DEBUG
 
-# 将连接状态保存到指定位置，并关闭彩色日志
+# 指定状态文件并禁用彩色日志
 gshocksrv --store-path /var/lib/gshocksrv/state.json --no-color
 ```
 
-默认状态文件为当前工作目录下的 `gshock_server_data.json`，用于记录最近一次连接。服务运行期间，ECB 系列、DW-H5600 等常连接型号每六小时最多接受一次连接。
+默认状态文件为当前目录下的 `gshock_server_data.json`，用于记录最近一次连接。ECB 系列、DW-H5600 等常连接型号每六小时最多接受一次连接。
 
 ### 参数
 
@@ -203,17 +203,17 @@ Flags:
 
 ### 平台说明
 
-- **macOS：** 首次使用时，需要在 **系统设置 > 隐私与安全性 > 蓝牙** 中允许终端或已安装的可执行文件访问蓝牙。
-- **Linux / Raspberry Pi：** BlueZ 必须保持运行，并且执行 `gshocksrv` 的用户需要有权限访问 BlueZ D-Bus 服务。
-- 同步时间取自运行机器的本地时区。启动服务前，请确认机器的系统时间和时区设置正确。
+- **macOS：** 首次使用时，在 **系统设置 > 隐私与安全性 > 蓝牙** 中允许终端或可执行文件访问蓝牙。
+- **Linux / Raspberry Pi：** BlueZ 必须运行，且当前用户需有权访问其 D-Bus 服务。
+- 同步时间取自运行机器的系统时间，请确认机器的系统时间和时区设置正确。
 
 ### 支持的功能
 
-- 标准数字表协议、MTG 模拟表协议，以及 GW-BX5600 的 MIP 校时流程。
+- 标准数字表、MTG 模拟表及 GW-BX5600 MIP 校时协议。
 - 校时前读取并回写必要的 DST 和世界城市设置。
-- 支持 `-10` 到 `10` 秒的时间微调。
-- 持续扫描并支持多块兼容手表。
+- `-10` 至 `10` 秒时间微调。
+- 持续扫描多块兼容手表。
 
 ### 致谢
 
-特别感谢 [GShockTimeServer](https://github.com/izivkov/GShockTimeServer)。本项目的 Go 实现及 Casio 手表校时逻辑以该项目为主要参考。
+感谢 [GShockTimeServer](https://github.com/izivkov/GShockTimeServer) 为本项目提供主要实现参考。
