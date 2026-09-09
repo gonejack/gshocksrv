@@ -46,31 +46,34 @@ Requires Go 1.26+.
 ```bash
 git clone https://github.com/gonejack/gshocksrv.git
 cd gshocksrv
-go build -o gshocksrv .
+go build .
 ```
 
 ### Usage
 
-#### Linux / Raspberry Pi requirement
+#### 1. Install BlueZ (Linux / Raspberry Pi only)
 
-Install and start BlueZ before running `gshocksrv`:
+Skip this step on macOS.
 
 ```bash
 sudo apt install bluez
 sudo systemctl enable --now bluetooth
 ```
 
-Start the service and keep it running:
+#### 2. Start the service
 
 ```bash
 gshocksrv
 ```
 
-Trigger a watch connection by short-pressing the lower-right button, long-pressing the lower-left button, or enabling
-automatic time adjustment, depending on the model. Once connected, the service writes the host's local time to the
-watch.
+Keep the service running.
 
-Common examples:
+#### 3. Connect the watch
+
+Depending on the model, short-press the lower-right button, long-press the lower-left button, or enable automatic time
+adjustment. Once connected, the service writes the host's local time to the watch.
+
+#### 4. Set optional parameters
 
 ```bash
 # Add one second to the synchronized time
@@ -159,29 +162,33 @@ go install github.com/gonejack/gshocksrv@latest
 ```bash
 git clone https://github.com/gonejack/gshocksrv.git
 cd gshocksrv
-go build -o gshocksrv .
+go build .
 ```
 
 ### 使用
 
-#### Linux / Raspberry Pi 运行要求
+#### 1. 安装 BlueZ（仅 Linux / Raspberry Pi）
 
-运行 `gshocksrv` 前安装并启动 BlueZ：
+macOS 可跳过此步骤。
 
 ```bash
 sudo apt install bluez
 sudo systemctl enable --now bluetooth
 ```
 
-启动服务并保持运行：
+#### 2. 启动服务
 
 ```bash
 gshocksrv
 ```
 
+保持服务运行。
+
+#### 3. 连接手表
+
 根据型号短按右下键、长按左下键或开启自动校时，由手表发起连接。连接后，服务将主机本地时间写入手表。
 
-常用示例：
+#### 4. 设置可选参数
 
 ```bash
 # 同步时间增加 1 秒
