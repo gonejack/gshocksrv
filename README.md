@@ -14,7 +14,21 @@
 
 ### Installation
 
-Go 1.26 or later is required.
+Choose one of the following installation methods.
+
+#### 1. Download a prebuilt executable (recommended)
+
+Download the archive for your operating system and architecture from the [Releases page](https://github.com/gonejack/gshocksrv/releases), then extract it and place the executable somewhere in your `PATH`. This method does not require Go.
+
+On macOS, if opening the downloaded executable shows a warning that it cannot be opened and should be moved to the Trash, clear its quarantine attributes before trying again:
+
+```bash
+xattr -c /path/to/gshocksrv
+```
+
+#### 2. Install with `go install`
+
+This method requires Go 1.26 or later.
 
 ```bash
 go install github.com/gonejack/gshocksrv@latest
@@ -22,19 +36,23 @@ go install github.com/gonejack/gshocksrv@latest
 
 Make sure the Go binary directory (usually `$HOME/go/bin`) is included in your `PATH`.
 
-On Linux and Raspberry Pi, install and start BlueZ first:
+#### 3. Build with `go build`
 
-```bash
-sudo apt install bluez
-sudo systemctl enable --now bluetooth
-```
-
-Alternatively, build the executable from source:
+This method requires Go 1.26 or later.
 
 ```bash
 git clone https://github.com/gonejack/gshocksrv.git
 cd gshocksrv
 go build -o gshocksrv .
+```
+
+#### Linux / Raspberry Pi requirement
+
+Regardless of the installation method, install and start BlueZ before running `gshocksrv`:
+
+```bash
+sudo apt install bluez
+sudo systemctl enable --now bluetooth
 ```
 
 ### Usage
@@ -103,7 +121,21 @@ Special thanks to [GShockTimeServer](https://github.com/izivkov/GShockTimeServer
 
 ### 安装
 
-需要 Go 1.26 或更高版本。
+请选择以下任意一种安装方式。
+
+#### 1. 下载预编译版本（推荐）
+
+前往 [Releases 页面](https://github.com/gonejack/gshocksrv/releases)，下载与操作系统和处理器架构匹配的压缩包，解压后将可执行文件放到 `PATH` 中。此方式不需要安装 Go。
+
+在 macOS 上，如果打开下载的可执行文件时提示无法打开并应“移到废纸篓”，请先执行以下命令清除隔离属性，然后再次运行：
+
+```bash
+xattr -c /path/to/gshocksrv
+```
+
+#### 2. 使用 `go install` 安装
+
+此方式需要 Go 1.26 或更高版本。
 
 ```bash
 go install github.com/gonejack/gshocksrv@latest
@@ -111,19 +143,23 @@ go install github.com/gonejack/gshocksrv@latest
 
 请确保 Go 的可执行文件目录（通常为 `$HOME/go/bin`）已经加入 `PATH`。
 
-在 Linux 和 Raspberry Pi 上，需要先安装并启动 BlueZ：
+#### 3. 使用 `go build` 构建
 
-```bash
-sudo apt install bluez
-sudo systemctl enable --now bluetooth
-```
-
-也可以从源码构建可执行文件：
+此方式需要 Go 1.26 或更高版本。
 
 ```bash
 git clone https://github.com/gonejack/gshocksrv.git
 cd gshocksrv
 go build -o gshocksrv .
+```
+
+#### Linux / Raspberry Pi 运行要求
+
+无论采用哪种安装方式，在 Linux 和 Raspberry Pi 上运行 `gshocksrv` 前都需要先安装并启动 BlueZ：
+
+```bash
+sudo apt install bluez
+sudo systemctl enable --now bluetooth
 ```
 
 ### 使用
