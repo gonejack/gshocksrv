@@ -8,9 +8,11 @@
 
 ## English
 
-`gshocksrv` is a headless Go service that synchronizes the host's local time to compatible Casio G-Shock watches over Bluetooth Low Energy (BLE).
+`gshocksrv` is a headless Go service that synchronizes the host's local time to compatible Casio G-Shock watches over
+Bluetooth Low Energy (BLE).
 
-> **Project origin:** A Go reimplementation of [izivkov/GShockTimeServer](https://github.com/izivkov/GShockTimeServer), covering its headless workflow, Casio BLE protocol, and model-specific synchronization logic.
+> **Project origin:** A Go reimplementation of [izivkov/GShockTimeServer](https://github.com/izivkov/GShockTimeServer),
+> covering its headless workflow, Casio BLE protocol, and model-specific synchronization logic.
 
 ### Installation
 
@@ -18,7 +20,8 @@ Choose one of the following methods.
 
 #### 1. Download prebuilt (recommended)
 
-Download the matching archive from [Releases](https://github.com/gonejack/gshocksrv/releases), extract it, and place the executable in your `PATH`.
+Download the matching archive from [Releases](https://github.com/gonejack/gshocksrv/releases), extract it, and place the
+executable in your `PATH`.
 
 On macOS, clear the quarantine attribute if the executable cannot be opened:
 
@@ -46,6 +49,8 @@ cd gshocksrv
 go build -o gshocksrv .
 ```
 
+### Usage
+
 #### Linux / Raspberry Pi requirement
 
 Install and start BlueZ before running `gshocksrv`:
@@ -55,15 +60,15 @@ sudo apt install bluez
 sudo systemctl enable --now bluetooth
 ```
 
-### Usage
-
 Start the service and keep it running:
 
 ```bash
 gshocksrv
 ```
 
-Trigger a watch connection by short-pressing the lower-right button, long-pressing the lower-left button, or enabling automatic time adjustment, depending on the model. Once connected, the service writes the host's local time to the watch.
+Trigger a watch connection by short-pressing the lower-right button, long-pressing the lower-left button, or enabling
+automatic time adjustment, depending on the model. Once connected, the service writes the host's local time to the
+watch.
 
 Common examples:
 
@@ -78,7 +83,8 @@ gshocksrv --log-level DEBUG
 gshocksrv --store-path /var/lib/gshocksrv/state.json --no-color
 ```
 
-The default state file, `gshock_server_data.json` in the current directory, records the latest connection. Always-connected models such as the ECB series and DW-H5600 accept at most one connection every six hours.
+The default state file, `gshock_server_data.json` in the current directory, records the latest connection.
+Always-connected models such as the ECB series and DW-H5600 accept at most one connection every six hours.
 
 ### Options
 
@@ -96,7 +102,8 @@ Flags:
 
 ### Platform Notes
 
-- **macOS:** On first use, allow the terminal or executable to use Bluetooth in **System Settings > Privacy & Security > Bluetooth**.
+- **macOS:** On first use, allow the terminal or executable to use Bluetooth in **System Settings > Privacy & Security >
+  Bluetooth**.
 - **Linux / Raspberry Pi:** BlueZ must be running, and the user must be allowed to access its D-Bus service.
 - The synchronized time is taken from the host, make sure the host's clock and time zone is correct.
 
@@ -109,7 +116,8 @@ Flags:
 
 ### Acknowledgements
 
-Thanks to [GShockTimeServer](https://github.com/izivkov/GShockTimeServer), the primary reference for this implementation.
+Thanks to [GShockTimeServer](https://github.com/izivkov/GShockTimeServer), the primary reference for this
+implementation.
 
 ---
 
@@ -117,7 +125,8 @@ Thanks to [GShockTimeServer](https://github.com/izivkov/GShockTimeServer), the p
 
 `gshocksrv` 是一个无界面的 Go 服务，通过低功耗蓝牙（BLE）将主机本地时间同步到兼容的 Casio G-Shock 手表。
 
-> **项目来源：** 本项目以 Go 重写 [izivkov/GShockTimeServer](https://github.com/izivkov/GShockTimeServer)，涵盖无界面服务流程、Casio BLE 协议及型号适配校时逻辑。
+> **项目来源：** 本项目以 Go 重写 [izivkov/GShockTimeServer](https://github.com/izivkov/GShockTimeServer)，涵盖无界面服务流程、Casio
+> BLE 协议及型号适配校时逻辑。
 
 ### 安装
 
@@ -153,6 +162,8 @@ cd gshocksrv
 go build -o gshocksrv .
 ```
 
+### 使用
+
 #### Linux / Raspberry Pi 运行要求
 
 运行 `gshocksrv` 前安装并启动 BlueZ：
@@ -161,8 +172,6 @@ go build -o gshocksrv .
 sudo apt install bluez
 sudo systemctl enable --now bluetooth
 ```
-
-### 使用
 
 启动服务并保持运行：
 
