@@ -23,8 +23,8 @@ type Connector interface {
 type Server struct {
 	cfg Config
 
-	c Connector
-	t *connectionLimiter
+	conn    Connector
+	checker *connectCheck
 
 	g *slog.Logger
 }
@@ -46,7 +46,7 @@ func (s *Server) Run(ctx context.Context) error {
 		case <-time.After(time.Second):
 			s.g.Info("Waiting for connection...")
 			scanCtx, cancel := context.WithTimeout(ctx, s.cfg.ScanTimeout)
-			watch, err := s.c.ScanAndConnect(scanCtx, s.acceptWatch)
+			watch, err := s.conn.ScanAndConnect(scanCtx, s.acceptWatch)
 			cancel()
 			if err != nil {
 				switch {
@@ -65,7 +65,7 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 }
 func (s *Server) acceptWatch(name string) bool {
-	return name != "CASIO OCW-T200" && s.t.allow(name)
+	return name != "CASIO OCW-T200" && s.checker.allow(name)
 }
 func (s *Server) handleWatch(ctx context.Context, store *store, watch *gshock.Watch) {
 	if !watch.AlwaysConnected {
@@ -102,6 +102,11 @@ func (s *Server) handleWatch(ctx context.Context, store *store, watch *gshock.Wa
 	s.g.Info("Set time done", "watch", watch.Name, "time", t.Format(time.RFC3339), "adjust", adjust)
 }
 
-func New(config Config, client Connector, logger *slog.Logger) *Server {
-	return &Server{cfg: config, c: client, g: logger, t: newConnectionLimiter()}
+func New(config Config, conn Connector, logger *slog.Logger) *Server {
+	return &Server{
+		cfg:     config,
+		conn:    conn,
+		checker: newConnectCheck(),
+		g:       logger,
+	}
 }

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"cmp"
 	"tinygo.org/x/bluetooth"
 )
 
@@ -22,51 +23,26 @@ const (
 	notificationQueue = 64
 )
 
-type Client struct {
-	adapter *bluetooth.Adapter
+type WatchConnector struct {
+	adapt *bluetooth.Adapter
 
 	requestTimeout time.Duration
-	serviceUUID    bluetooth.UUID
+	casioUUID      bluetooth.UUID
 
 	g *slog.Logger
 }
 
-func (c *Client) ScanAndConnect(ctx context.Context, accept func(string) bool) (*Watch, error) {
-	type candidate struct {
-		address bluetooth.Address
-		name    string
-	}
-	var found *candidate
-	stop := context.AfterFunc(ctx, func() {
-		_ = c.adapter.StopScan()
-	})
-	err := c.adapter.Scan(func(adapter *bluetooth.Adapter, result bluetooth.ScanResult) {
-		if found != nil || !result.HasServiceUUID(c.serviceUUID) {
-			return
-		}
-		name := result.LocalName()
-		if accept != nil && !accept(name) {
-			return
-		}
-		found = &candidate{
-			address: result.Address,
-			name:    name,
-		}
-		_ = adapter.StopScan()
-	})
-	stop()
+type candidate struct {
+	address bluetooth.Address
+	name    string
+}
 
-	if ctx.Err() != nil {
-		return nil, ctx.Err()
-	}
+func (c *WatchConnector) ScanAndConnect(ctx context.Context, accept func(string) bool) (*Watch, error) {
+	found, err := c.scan(ctx, accept)
 	if err != nil {
-		return nil, fmt.Errorf("scan: %w", err)
+		return nil, err
 	}
-	if found == nil {
-		return nil, ErrNotFound
-	}
-
-	device, err := c.adapter.Connect(found.address, bluetooth.ConnectionParams{})
+	device, err := c.adapt.Connect(found.address, bluetooth.ConnectionParams{})
 	if err != nil {
 		return nil, fmt.Errorf("connect to %s: %w", found.address.String(), err)
 	}
@@ -77,7 +53,65 @@ func (c *Client) ScanAndConnect(ctx context.Context, accept func(string) bool) (
 	}
 	return watch, nil
 }
-func (c *Client) prepareWatch(device bluetooth.Device, name, address string) (*Watch, error) {
+
+func (c *WatchConnector) scan(ctx context.Context, accept func(string) bool) (*candidate, error) {
+	var found *candidate
+	var err = c.scanWithContext(ctx, func(stop func()) error {
+		return c.adapt.Scan(func(adapt *bluetooth.Adapter, res bluetooth.ScanResult) {
+			if found != nil || !res.HasServiceUUID(c.casioUUID) {
+				return
+			}
+			name := res.LocalName()
+			if accept != nil && !accept(name) {
+				return
+			}
+			found = &candidate{
+				address: res.Address,
+				name:    name,
+			}
+			stop()
+		})
+	})
+	switch {
+	case err != nil:
+		return nil, fmt.Errorf("scan error: %w", err)
+	case found == nil:
+		return nil, ErrNotFound
+	}
+	return found, nil
+}
+func (c *WatchConnector) scanWithContext(ctx context.Context, scan func(func()) error) (err error) {
+	defer func() { err = cmp.Or(ctx.Err(), err) }()
+	scanErr := make(chan error, 1)
+	stopReq := make(chan int, 1)
+	go func() {
+		scanErr <- scan(func() {
+			select {
+			case stopReq <- 0:
+			default:
+			}
+		})
+	}()
+	select {
+	case exx := <-scanErr:
+		return exx
+	case <-ctx.Done():
+	case <-stopReq:
+	}
+	for {
+		// If no scan is in progress, an error will be returned.
+		if c.adapt.StopScan() != nil {
+			select {
+			case exx := <-scanErr: // read error if finished
+				return exx
+			case <-time.After(time.Second / 4): // wait start if not started
+				continue
+			}
+		}
+		return <-scanErr
+	}
+}
+func (c *WatchConnector) prepareWatch(device bluetooth.Device, name, address string) (*Watch, error) {
 	services, err := device.DiscoverServices(nil)
 	if err != nil {
 		return nil, fmt.Errorf("discover services: %w", err)
@@ -151,16 +185,23 @@ func (c *Client) prepareWatch(device bluetooth.Device, name, address string) (*W
 	return w, nil
 }
 
-func NewClient(adapter *bluetooth.Adapter, logger *slog.Logger, requestTimeout time.Duration) (*Client, error) {
-	if requestTimeout <= 0 {
+func NewWatchConnector(adapter *bluetooth.Adapter, g *slog.Logger, reqTimeout time.Duration) (*WatchConnector, error) {
+	if reqTimeout <= 0 {
 		return nil, errors.New("request timeout must be positive")
 	}
-	serviceUUID, err := bluetooth.ParseUUID(casioServiceUUID)
+	uuid, err := bluetooth.ParseUUID(casioServiceUUID)
 	if err != nil {
 		return nil, fmt.Errorf("parse Casio service UUID: %w", err)
 	}
 	if err := adapter.Enable(); err != nil {
 		return nil, err
 	}
-	return &Client{adapter: adapter, g: logger, requestTimeout: requestTimeout, serviceUUID: serviceUUID}, nil
+	return &WatchConnector{
+		adapt: adapter,
+
+		requestTimeout: reqTimeout,
+		casioUUID:      uuid,
+
+		g: g,
+	}, nil
 }

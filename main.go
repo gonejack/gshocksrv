@@ -52,24 +52,22 @@ func (a *application) run() error {
 	if err != nil {
 		return err
 	}
-	logger := slog.New(tint.NewTextHandler(os.Stdout, &tint.Options{
+	g := slog.New(tint.NewTextHandler(os.Stdout, &tint.Options{
 		Level:      level,
 		TimeFormat: time.DateTime,
 		NoColor:    a.NoColor,
 	}))
-
-	client, err := gshock.NewClient(bluetooth.DefaultAdapter, logger, a.RequestTimeout)
+	connector, err := gshock.NewWatchConnector(bluetooth.DefaultAdapter, g, a.RequestTimeout)
 	if err != nil {
 		return fmt.Errorf("initialize Bluetooth: %w", err)
 	}
-
 	cfg := server.Config{
 		FineAdjustment: a.FineAdjustment,
 		ScanTimeout:    a.ScanTimeout,
 		RequestTimeout: a.RequestTimeout,
 		StorePath:      a.StorePath,
 	}
-	srv := server.New(cfg, client, logger)
+	srv := server.New(cfg, connector, g)
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	if err := srv.Run(ctx); err != nil {

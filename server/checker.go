@@ -7,7 +7,7 @@ import (
 	"github.com/gonejack/gshocksrv/gshock"
 )
 
-type connectionLimiter struct {
+type connectCheck struct {
 	last     map[string]time.Time
 	now      func() time.Time
 	interval time.Duration
@@ -15,7 +15,7 @@ type connectionLimiter struct {
 	mu sync.Mutex
 }
 
-func (t *connectionLimiter) allow(name string) bool {
+func (t *connectCheck) allow(name string) bool {
 	if !gshock.IsAlwaysConnected(name) {
 		return true
 	}
@@ -29,8 +29,8 @@ func (t *connectionLimiter) allow(name string) bool {
 	return true
 }
 
-func newConnectionLimiter() *connectionLimiter {
-	return &connectionLimiter{
+func newConnectCheck() *connectCheck {
+	return &connectCheck{
 		last:     make(map[string]time.Time),
 		now:      time.Now,
 		interval: 6 * time.Hour,

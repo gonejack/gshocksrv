@@ -4,16 +4,16 @@
 
 ## English
 
-This document explains how the project uses `tinygo.org/x/bluetooth` to discover, connect to, and operate Casio G-Shock watches. The main implementations are in [gshock/client.go](../gshock/client.go) and [gshock/watch.go](../gshock/watch.go).
+This document explains how the project uses `tinygo.org/x/bluetooth` to discover, connect to, and operate Casio G-Shock watches. The main implementations are in [gshock/connector.go](../gshock/connector.go) and [gshock/watch.go](../gshock/watch.go).
 
 ### Overall Call Flow
 
 ```text
 main.go
-  -> gshock.NewClient(bluetooth.DefaultAdapter, ...)
+  -> gshock.NewWatchConnector(bluetooth.DefaultAdapter, ...)
   -> adapter.Enable()
   -> server.Run()
-  -> Client.ScanAndConnect()
+  -> connector.ScanAndConnect()
        -> Adapter.Scan()
        -> Adapter.Connect()
        -> Device.DiscoverServices()
@@ -25,21 +25,17 @@ main.go
   -> Device.Disconnect()
 ```
 
-`main.go` only obtains the default adapter and creates the client: [main.go:61](../main.go#L61). The `Client` and `Watch` types perform the actual BLE operations.
+`main.go` obtains the default adapter and creates a `WatchConnector`: [main.go:60](../main.go#L60). The connector and `Watch` perform the BLE operations.
 
 ### 1. Select and Enable the Local Adapter
 
 ```go
-client, err := gshock.NewClient(
-    bluetooth.DefaultAdapter,
-    logger,
-    a.RequestTimeout,
-)
+connector, err := gshock.NewWatchConnector(bluetooth.DefaultAdapter, g, a.RequestTimeout)
 ```
 
 `bluetooth.DefaultAdapter` is the host system's default Bluetooth adapter. It represents the local BLE Central, not a specific watch.
 
-`NewClient` performs two tasks: [client.go:154-165](../gshock/client.go#L154-L165)
+`NewWatchConnector` performs two tasks: [connector.go:189-208](../gshock/connector.go#L189-L208)
 
 1. Parses the Casio service UUID.
 2. Calls `adapter.Enable()` to enable the local Bluetooth adapter.
@@ -61,24 +57,24 @@ For each scan, the server creates a context with a timeout and calls `ScanAndCon
 
 ```go
 scanCtx, cancel := context.WithTimeout(ctx, s.cfg.ScanTimeout)
-watch, err := s.c.ScanAndConnect(scanCtx, s.acceptWatch)
+watch, err := s.conn.ScanAndConnect(scanCtx, s.acceptWatch)
 ```
 
-`ScanAndConnect` starts a scan on the adapter: [client.go:34-78](../gshock/client.go#L34-L78)
+`ScanAndConnect` calls `scan`, which starts a scan on the adapter: [connector.go:40-82](../gshock/connector.go#L40-L82)
 
 ```go
-err := c.adapter.Scan(func(adapter *bluetooth.Adapter, result bluetooth.ScanResult) {
-    if found != nil || !result.HasServiceUUID(c.serviceUUID) {
-        return
-    }
-
-    name := result.LocalName()
-    if accept != nil && !accept(name) {
-        return
-    }
-
-    found = &candidate{address: result.Address, name: name}
-    _ = adapter.StopScan()
+err := c.scanWithContext(ctx, func(stop func()) error {
+    return c.adapt.Scan(func(adapt *bluetooth.Adapter, res bluetooth.ScanResult) {
+        if found != nil || !res.HasServiceUUID(c.casioUUID) {
+            return
+        }
+        name := res.LocalName()
+        if accept != nil && !accept(name) {
+            return
+        }
+        found = &candidate{address: res.Address, name: name}
+        stop()
+    })
 })
 ```
 
@@ -88,16 +84,16 @@ The scan listens for BLE advertisements:
 2. The library invokes the callback with a `ScanResult` for each discovered device.
 3. `HasServiceUUID` filters for devices advertising the Casio service UUID.
 4. `accept` filters device names and enforces connection-rate limits.
-5. After saving the device address, the callback immediately calls `StopScan`.
+5. After saving the device address, the callback requests that the scan stop.
 
-When the scan context expires, `context.AfterFunc` also calls `StopScan`: [client.go:40-42](../gshock/client.go#L40-L42). `ScanTimeout` therefore limits how long the server waits to find a watch.
+`scanWithContext` runs `Adapter.Scan` in a goroutine. When a match is found or the scan context expires, it calls `Adapter.StopScan` and waits for the scan to finish: [connector.go:84-113](../gshock/connector.go#L84-L113). `ScanTimeout` limits how long the server waits to find a watch.
 
 ### 3. Connect to the BLE Peripheral
 
-After discovering a watch, the client connects using the Bluetooth address from its advertisement: [client.go:69-76](../gshock/client.go#L69-L76)
+After discovering a watch, the connector uses the Bluetooth address from its advertisement to connect: [connector.go:40-54](../gshock/connector.go#L40-L54)
 
 ```go
-device, err := c.adapter.Connect(
+device, err := c.adapt.Connect(
     found.address,
     bluetooth.ConnectionParams{},
 )
@@ -105,11 +101,11 @@ device, err := c.adapter.Connect(
 
 The returned `bluetooth.Device` represents a connected BLE GATT peripheral. This is a BLE GATT connection, not a classic Bluetooth serial (RFCOMM) connection.
 
-If service or characteristic discovery subsequently fails, the client disconnects the device to avoid leaving a partial connection open.
+If service or characteristic discovery subsequently fails, the connector disconnects the device to avoid leaving a partial connection open.
 
 ### 4. Discover GATT Services and Characteristics
 
-After connecting, the client discovers all GATT services and characteristics exposed by the watch: [client.go:81-96](../gshock/client.go#L81-L96)
+After connecting, the connector discovers all GATT services and characteristics exposed by the watch: [connector.go:115-131](../gshock/connector.go#L115-L131)
 
 ```go
 services, err := device.DiscoverServices(nil)
@@ -128,7 +124,7 @@ Device
        -> Characteristic
 ```
 
-The client locates the characteristics required by the Casio protocol using their UUIDs: [client.go:98-125](../gshock/client.go#L98-L125)
+The connector locates the characteristics required by the Casio protocol using their UUIDs: [connector.go:133-160](../gshock/connector.go#L133-L160)
 
 | UUID constant | Purpose |
 | --- | --- |
@@ -137,11 +133,11 @@ The client locates the characteristics required by the Casio protocol using thei
 | `spRequestUUID` | Sends MIP protocol requests for supported models |
 | `spDataUUID` | Exchanges MIP protocol data for supported models |
 
-If `readRequestUUID` or `allFeaturesUUID` is absent, the client reports that the watch lacks a required characteristic and stops processing it.
+If `readRequestUUID` or `allFeaturesUUID` is absent, the connector reports that the watch lacks a required characteristic and stops processing it.
 
 ### 5. Subscribe to Notifications
 
-The client iterates over the discovered characteristics and attempts to enable notifications: [client.go:127-150](../gshock/client.go#L127-L150)
+The connector iterates over the discovered characteristics and attempts to enable notifications: [connector.go:162-185](../gshock/connector.go#L162-L185)
 
 ```go
 err := characteristic.EnableNotifications(func(data []byte) {
@@ -158,7 +154,7 @@ Notifications provide an asynchronous data channel from the watch to the host:
 
 For MIP models, `spDataUUID` uses a separate `spNotifications` channel so that MIP data is not mixed with standard protocol data.
 
-The client rejects the connection if none of the characteristics supports notifications.
+The connector rejects the connection if none of the characteristics supports notifications.
 
 ### 6. Read the Pressed Button
 
@@ -218,16 +214,16 @@ In this project, `tinygo.org/x/bluetooth` provides the cross-platform BLE adapte
 
 ## 中文
 
-本文说明本项目如何通过 `tinygo.org/x/bluetooth` 发现、连接并操作 Casio G-Shock 手表。重点对应 [gshock/client.go](../gshock/client.go) 和 [gshock/watch.go](../gshock/watch.go) 的实现。
+本文说明本项目如何通过 `tinygo.org/x/bluetooth` 发现、连接并操作 Casio G-Shock 手表。重点对应 [gshock/connector.go](../gshock/connector.go) 和 [gshock/watch.go](../gshock/watch.go) 的实现。
 
 ### 总体调用链
 
 ```text
 main.go
-  -> gshock.NewClient(bluetooth.DefaultAdapter, ...)
+  -> gshock.NewWatchConnector(bluetooth.DefaultAdapter, ...)
   -> adapter.Enable()
   -> server.Run()
-  -> Client.ScanAndConnect()
+  -> connector.ScanAndConnect()
        -> Adapter.Scan()
        -> Adapter.Connect()
        -> Device.DiscoverServices()
@@ -239,21 +235,17 @@ main.go
   -> Device.Disconnect()
 ```
 
-`main.go` 只负责取得默认适配器并创建客户端：[main.go:61](../main.go#L61)。实际的 BLE 操作由 `Client` 和 `Watch` 完成。
+`main.go` 取得默认适配器并创建 `WatchConnector`：[main.go:60](../main.go#L60)。实际的 BLE 操作由连接器和 `Watch` 完成。
 
 ### 1. 选择并启用本机适配器
 
 ```go
-client, err := gshock.NewClient(
-    bluetooth.DefaultAdapter,
-    logger,
-    a.RequestTimeout,
-)
+connector, err := gshock.NewWatchConnector(bluetooth.DefaultAdapter, g, a.RequestTimeout)
 ```
 
 `bluetooth.DefaultAdapter` 是当前系统的默认蓝牙适配器，表示本机的 BLE Central，而不是某一块手表。
 
-`NewClient` 会完成两件事：[client.go:154-165](../gshock/client.go#L154-L165)
+`NewWatchConnector` 会完成两件事：[connector.go:189-208](../gshock/connector.go#L189-L208)
 
 1. 解析 Casio 服务 UUID。
 2. 调用 `adapter.Enable()` 启用本机蓝牙适配器。
@@ -275,24 +267,24 @@ client, err := gshock.NewClient(
 
 ```go
 scanCtx, cancel := context.WithTimeout(ctx, s.cfg.ScanTimeout)
-watch, err := s.c.ScanAndConnect(scanCtx, s.acceptWatch)
+watch, err := s.conn.ScanAndConnect(scanCtx, s.acceptWatch)
 ```
 
-`ScanAndConnect` 调用适配器扫描：[client.go:34-78](../gshock/client.go#L34-L78)
+`ScanAndConnect` 调用 `scan`，由它启动适配器扫描：[connector.go:40-82](../gshock/connector.go#L40-L82)
 
 ```go
-err := c.adapter.Scan(func(adapter *bluetooth.Adapter, result bluetooth.ScanResult) {
-    if found != nil || !result.HasServiceUUID(c.serviceUUID) {
-        return
-    }
-
-    name := result.LocalName()
-    if accept != nil && !accept(name) {
-        return
-    }
-
-    found = &candidate{address: result.Address, name: name}
-    _ = adapter.StopScan()
+err := c.scanWithContext(ctx, func(stop func()) error {
+    return c.adapt.Scan(func(adapt *bluetooth.Adapter, res bluetooth.ScanResult) {
+        if found != nil || !res.HasServiceUUID(c.casioUUID) {
+            return
+        }
+        name := res.LocalName()
+        if accept != nil && !accept(name) {
+            return
+        }
+        found = &candidate{address: res.Address, name: name}
+        stop()
+    })
 })
 ```
 
@@ -302,16 +294,16 @@ err := c.adapter.Scan(func(adapter *bluetooth.Adapter, result bluetooth.ScanResu
 2. 每发现一个设备，库调用一次回调函数并传入 `ScanResult`。
 3. `HasServiceUUID` 过滤出广播 Casio 服务 UUID 的设备。
 4. `accept` 过滤设备名称和连接频率限制。
-5. 保存设备地址后立即调用 `StopScan`。
+5. 保存设备地址后，回调请求停止扫描。
 
-扫描上下文超时时，`context.AfterFunc` 也会调用 `StopScan`：[client.go:40-42](../gshock/client.go#L40-L42)。因此 `ScanTimeout` 同时限制“找设备”的最长时间。
+`scanWithContext` 在 goroutine 中运行 `Adapter.Scan`。找到匹配设备或扫描上下文超时后，它调用 `Adapter.StopScan` 并等待扫描结束：[connector.go:84-113](../gshock/connector.go#L84-L113)。`ScanTimeout` 限制服务器寻找手表的时间。
 
 ### 3. 连接 BLE 外设
 
-扫描找到设备后，代码使用广播中得到的蓝牙地址连接：[client.go:69-76](../gshock/client.go#L69-L76)
+扫描找到设备后，连接器使用广播中得到的蓝牙地址连接：[connector.go:40-54](../gshock/connector.go#L40-L54)
 
 ```go
-device, err := c.adapter.Connect(
+device, err := c.adapt.Connect(
     found.address,
     bluetooth.ConnectionParams{},
 )
@@ -319,11 +311,11 @@ device, err := c.adapter.Connect(
 
 返回的 `bluetooth.Device` 是已经建立连接的 BLE GATT 外设。这里使用的是 BLE GATT 连接，不是传统蓝牙串口（RFCOMM）连接。
 
-如果后续服务或特征发现失败，代码会主动断开这个设备，避免留下半连接状态。
+如果后续服务或特征发现失败，连接器会主动断开这个设备，避免留下半连接状态。
 
 ### 4. 发现 GATT 服务和特征
 
-连接成功后，客户端发现设备提供的所有 GATT 服务和特征：[client.go:81-96](../gshock/client.go#L81-L96)
+连接成功后，连接器发现设备提供的所有 GATT 服务和特征：[connector.go:115-131](../gshock/connector.go#L115-L131)
 
 ```go
 services, err := device.DiscoverServices(nil)
@@ -342,7 +334,7 @@ Device
         └── Characteristic
 ```
 
-客户端按 UUID 找到 Casio 协议需要的特征：[client.go:98-125](../gshock/client.go#L98-L125)
+连接器按 UUID 找到 Casio 协议需要的特征：[connector.go:133-160](../gshock/connector.go#L133-L160)
 
 | UUID 常量 | 用途 |
 | --- | --- |
@@ -351,11 +343,11 @@ Device
 | `spRequestUUID` | MIP 协议请求，部分型号使用 |
 | `spDataUUID` | MIP 协议数据，部分型号使用 |
 
-缺少 `readRequestUUID` 或 `allFeaturesUUID` 时，客户端会报告“手表缺少必要特征”，不会继续操作。
+缺少 `readRequestUUID` 或 `allFeaturesUUID` 时，连接器会报告“手表缺少必要特征”，不会继续操作。
 
 ### 5. 订阅通知
 
-客户端遍历发现的特征并尝试启用通知：[client.go:127-150](../gshock/client.go#L127-L150)
+连接器遍历发现的特征并尝试启用通知：[connector.go:162-185](../gshock/connector.go#L162-L185)
 
 ```go
 err := characteristic.EnableNotifications(func(data []byte) {
@@ -372,7 +364,7 @@ err := characteristic.EnableNotifications(func(data []byte) {
 
 MIP 型号的 `spDataUUID` 使用独立的 `spNotifications` channel，避免与普通协议数据混在一起。
 
-如果没有任何特征支持通知，客户端会拒绝这次连接。
+如果没有任何特征支持通知，连接器会拒绝这次连接。
 
 ### 6. 读取按键状态
 
